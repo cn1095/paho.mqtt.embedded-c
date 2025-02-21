@@ -44,7 +44,7 @@ jobs:
        uses: actions/checkout@v4
        with:
          repository: eclipse-paho/paho.mqtt.cpp
-         ref: 1.5.1
+         ref: master
        
      - name: 下载gcc
        uses: lmq8267/dl-musl@main
