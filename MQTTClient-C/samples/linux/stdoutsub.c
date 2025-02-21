@@ -188,9 +188,13 @@ void getopts(int argc, char** argv)
 					printf("开启消息主题名显示\n");
 				}
 				else if (strcmp(argv[count], "off") == 0)
+				{
 					opts.showtopics = 0;
+				}
 				else
+				{
 					usage();
+				}
 			}
 			else
 				usage();
