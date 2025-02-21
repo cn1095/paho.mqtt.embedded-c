@@ -42,6 +42,9 @@ jobs:
     
      - name: Checkout code
        uses: actions/checkout@v4
+       with:
+         repository: eclipse-paho/paho.mqtt.cpp
+         ref: v1.5.1
        
      - name: 下载gcc
        uses: lmq8267/dl-musl@main
@@ -58,18 +61,22 @@ jobs:
         
      - name: 编译
        run: |
+         git submodule init
+         git submodule update
+         sudo apt install build-essential
          mkdir -p build && cd build
          export CC="$CC -static"
          export CXX="$CXX -static"
-         cmake ..
+         cmake -DPAHO_BUILD_STATIC=ON -DPAHO_BUILD_SHARED=false -DPAHO_BUILD_EXAMPLES=true -DPAHO_WITH_SSL=false -DPAHO_HIGH_PERFORMANCE=TRUE -DPAHO_ENABLE_TESTING=false -DPAHO_WITH_MQTT_C=ON ..
          make
-         
-         file MQTTClient-C/samples/linux/stdoutsubc 
-         $STRIP MQTTClient-C/samples/linux/stdoutsubc
-         file MQTTClient-C/samples/linux/stdoutsubc
-         upx --lzma --best MQTTClient-C/samples/linux/stdoutsubc
+         cpack --verbose
+         find . -type f -executable
+         #file MQTTClient-C/samples/linux/stdoutsubc 
+         #$STRIP MQTTClient-C/samples/linux/stdoutsubc
+         #file MQTTClient-C/samples/linux/stdoutsubc
+         #upx --lzma --best MQTTClient-C/samples/linux/stdoutsubc
          
      - uses: actions/upload-artifact@v4
        with:
         name: stdoutsubc-${{ matrix.target }}
-        path: build/MQTTClient-C/samples/linux/stdoutsubc
+        path: build/
