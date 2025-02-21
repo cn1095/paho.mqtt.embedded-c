@@ -1,184 +1,158 @@
 #include <stdio.h>
-#include <memory.h>
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
-#include <unistd.h>
-
+#include <signal.h>
+#include <sys/time.h>
 #include "MQTTClient.h"
 
-#define MAX_THREADS 50  // 线程最大并发数
+#define MAX_TOPICS_PER_THREAD 50  // 每个线程最多处理 50 个主题
+#define MAX_THREADS 10            // 允许的最大线程数
+#define MAX_TOPIC_LENGTH 100      // 单个主题的最大长度
+#define MAX_PAYLOAD_LENGTH 1024   // MQTT 消息的最大长度
 
 volatile int toStop = 0;
 
-struct opts_struct {
-    char* clientid;
-    int nodelimiter;
-    char* delimiter;
-    enum QoS qos;
-    char* username;
-    char* password;
-    char* host;
-    int port;
-    int showtopics;
-    char* script;
-} opts = {
-    (char*)"stdout-subscriber", 0, (char*)"\n", QOS1, NULL, NULL, (char*)"bemfa.com", 9501, 0, NULL
+struct MQTTThreadArgs
+{
+    char **topics;     // 主题列表
+    int topic_count;   // 主题数量
+    char clientid[64]; // 客户端 ID
 };
 
-// 订阅主题的参数结构体
-typedef struct {
-    char topic[128];
-    int thread_index;
-} ThreadArg;
-
-// 线程数组
-pthread_t threads[MAX_THREADS];
-int active_threads = 0;
-pthread_mutex_t thread_mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t thread_cond = PTHREAD_COND_INITIALIZER;
-
-// 线程完成后的清理函数
-void thread_cleanup() {
-    pthread_mutex_lock(&thread_mutex);
-    active_threads--;
-    pthread_cond_signal(&thread_cond);  // 释放等待的线程
-    pthread_mutex_unlock(&thread_mutex);
+void cfinish(int sig)
+{
+    signal(SIGINT, NULL);
+    toStop = 1;
 }
 
-// 处理收到的 MQTT 消息
-void messageArrived(MessageData* md) {
-    MQTTMessage* message = md->message;
-    
-    if (opts.showtopics)
-        printf("%.*s\t", md->topicName->lenstring.len, md->topicName->lenstring.data);
-    if (opts.nodelimiter)
-        printf("%.*s", (int)message->payloadlen, (char*)message->payload);
-    else
-        printf("%.*s%s", (int)message->payloadlen, (char*)message->payload, opts.delimiter);
-    
-    fflush(stdout);
-
-    if (opts.script) {
-        char payload_buf[1024];
-        int len = (message->payloadlen < 1023) ? message->payloadlen : 1023;
-        memcpy(payload_buf, message->payload, len);
-        payload_buf[len] = '\0'; 
-
-        char command[2048];
-        snprintf(command, sizeof(command), "sh %s \"%s\" &", opts.script, payload_buf);
-        system(command);
-    }
+void messageArrived(MessageData *md)
+{
+    MQTTMessage *message = md->message;
+    printf("[收到消息] 主题: %.*s, 内容: %.*s\n",
+           md->topicName->lenstring.len, md->topicName->lenstring.data,
+           (int)message->payloadlen, (char *)message->payload);
 }
 
-// MQTT 订阅线程函数
-void* subscribeThread(void* arg) {
-    ThreadArg* thread_arg = (ThreadArg*)arg;
-    char* topic = thread_arg->topic;
-    int thread_index = thread_arg->thread_index;
-
-    printf("[线程 %d] 正在连接并订阅主题: %s\n", thread_index, topic);
+void *mqtt_thread(void *args)
+{
+    struct MQTTThreadArgs *mqttArgs = (struct MQTTThreadArgs *)args;
 
     Network n;
     MQTTClient c;
-    unsigned char buf[100];
+    unsigned char sendbuf[100];
     unsigned char readbuf[100];
 
     NetworkInit(&n);
-    if (NetworkConnect(&n, opts.host, opts.port) != 0) {
-        fprintf(stderr, "[线程 %d] 连接失败: %s\n", thread_index, topic);
-        thread_cleanup();
-        return NULL;
+    if (NetworkConnect(&n, "bemfa.com", 9501) != 0)
+    {
+        fprintf(stderr, "线程 [%s] 连接失败\n", mqttArgs->clientid);
+        pthread_exit(NULL);
     }
 
-    MQTTClientInit(&c, &n, 1000, buf, 100, readbuf, 100);
+    MQTTClientInit(&c, &n, 1000, sendbuf, sizeof(sendbuf), readbuf, sizeof(readbuf));
 
     MQTTPacket_connectData data = MQTTPacket_connectData_initializer;
-    data.clientID.cstring = opts.clientid;
-    data.username.cstring = opts.username;
-    data.password.cstring = opts.password;
+    data.MQTTVersion = 3;
+    data.clientID.cstring = mqttArgs->clientid;
+    data.username.cstring = NULL;
+    data.password.cstring = NULL;
     data.keepAliveInterval = 10;
     data.cleansession = 1;
 
-    if (MQTTConnect(&c, &data) != 0) {
-        fprintf(stderr, "[线程 %d] MQTT 连接失败: %s\n", thread_index, topic);
-        NetworkDisconnect(&n);
-        thread_cleanup();
-        return NULL;
+    printf("线程 [%s] 连接到 MQTT 服务器...\n", mqttArgs->clientid);
+    if (MQTTConnect(&c, &data) != 0)
+    {
+        fprintf(stderr, "线程 [%s] 连接 MQTT 失败\n", mqttArgs->clientid);
+        pthread_exit(NULL);
     }
 
-    printf("[线程 %d] 连接成功，正在订阅: %s\n", thread_index, topic);
-    if (MQTTSubscribe(&c, topic, opts.qos, messageArrived) != 0) {
-        fprintf(stderr, "[线程 %d] 订阅失败: %s\n", thread_index, topic);
-        MQTTDisconnect(&c);
-        NetworkDisconnect(&n);
-        thread_cleanup();
-        return NULL;
+    printf("线程 [%s] 订阅 %d 个主题:\n", mqttArgs->clientid, mqttArgs->topic_count);
+    for (int i = 0; i < mqttArgs->topic_count; i++)
+    {
+        printf("  - %s\n", mqttArgs->topics[i]);
+        if (MQTTSubscribe(&c, mqttArgs->topics[i], QOS1, messageArrived) != 0)
+        {
+            fprintf(stderr, "线程 [%s] 订阅失败: %s\n", mqttArgs->clientid, mqttArgs->topics[i]);
+        }
     }
 
-    printf("[线程 %d] 订阅成功: %s\n", thread_index, topic);
-
-    while (!toStop) {
+    while (!toStop)
+    {
         MQTTYield(&c, 1000);
     }
 
-    printf("[线程 %d] 断开订阅: %s\n", thread_index, topic);
+    printf("线程 [%s] 断开连接...\n", mqttArgs->clientid);
     MQTTDisconnect(&c);
     NetworkDisconnect(&n);
-
-    thread_cleanup();
-    return NULL;
+    pthread_exit(NULL);
 }
 
-// 创建线程订阅 MQTT
-void createThreadForTopic(char* topic, int thread_index) {
-    pthread_mutex_lock(&thread_mutex);
-    
-    // 等待有空闲的线程槽
-    while (active_threads >= MAX_THREADS) {
-        pthread_cond_wait(&thread_cond, &thread_mutex);
-    }
-    
-    // 线程参数
-    ThreadArg* thread_arg = (ThreadArg*)malloc(sizeof(ThreadArg));
-    strncpy(thread_arg->topic, topic, sizeof(thread_arg->topic) - 1);
-    thread_arg->thread_index = thread_index;
-
-    // 启动线程
-    if (pthread_create(&threads[thread_index], NULL, subscribeThread, (void*)thread_arg) == 0) {
-        active_threads++;
-    } else {
-        fprintf(stderr, "线程创建失败: %s\n", topic);
-        free(thread_arg);
-    }
-
-    pthread_mutex_unlock(&thread_mutex);
-}
-
-int main(int argc, char** argv) {
-    if (argc < 2) {
-        fprintf(stderr, "用法: %s 主题名称1,主题名称2,...\n", argv[0]);
+int main(int argc, char **argv)
+{
+    if (argc < 2)
+    {
+        fprintf(stderr, "用法: %s <主题1,主题2,...>\n", argv[0]);
         return -1;
     }
 
-    char* topic_list = argv[1];
-    char* topics = strdup(topic_list);
-    char* topic = strtok(topics, ",");
-    int thread_index = 0;
+    char *topic_list = strdup(argv[1]); // 复制主题参数
+    char *topics[MAX_THREADS * MAX_TOPICS_PER_THREAD]; // 主题存储
+    int topic_count = 0;
 
-    while (topic != NULL) {
-        createThreadForTopic(topic, thread_index);
-        thread_index++;
-        topic = strtok(NULL, ",");
+    // 拆分主题
+    char *token = strtok(topic_list, ",");
+    while (token != NULL && topic_count < MAX_THREADS * MAX_TOPICS_PER_THREAD)
+    {
+        topics[topic_count++] = strdup(token);
+        token = strtok(NULL, ",");
+    }
+    free(topic_list);
+
+    // 计算需要的线程数量
+    int thread_count = (topic_count + MAX_TOPICS_PER_THREAD - 1) / MAX_TOPICS_PER_THREAD;
+    if (thread_count > MAX_THREADS)
+    {
+        fprintf(stderr, "错误: 主题数量超出 %d 限制\n", MAX_THREADS * MAX_TOPICS_PER_THREAD);
+        return -1;
     }
 
-    free(topics);
+    // 创建线程
+    pthread_t threads[MAX_THREADS];
+    struct MQTTThreadArgs args[MAX_THREADS];
 
-    // 等待所有线程结束
-    for (int i = 0; i < thread_index; i++) {
+    for (int i = 0; i < thread_count; i++)
+    {
+        args[i].topic_count = (i == thread_count - 1) ? (topic_count % MAX_TOPICS_PER_THREAD) : MAX_TOPICS_PER_THREAD;
+        if (args[i].topic_count == 0)
+            args[i].topic_count = MAX_TOPICS_PER_THREAD;
+
+        args[i].topics = &topics[i * MAX_TOPICS_PER_THREAD];
+        snprintf(args[i].clientid, sizeof(args[i].clientid), "client_%d", i);
+
+        if (pthread_create(&threads[i], NULL, mqtt_thread, &args[i]) != 0)
+        {
+            fprintf(stderr, "线程创建失败: client_%d\n", i);
+            return -1;
+        }
+    }
+
+    // 捕捉退出信号
+    signal(SIGINT, cfinish);
+    signal(SIGTERM, cfinish);
+
+    // 等待线程结束
+    for (int i = 0; i < thread_count; i++)
+    {
         pthread_join(threads[i], NULL);
     }
 
-    printf("所有订阅线程已结束，程序退出。\n");
+    // 释放内存
+    for (int i = 0; i < topic_count; i++)
+    {
+        free(topics[i]);
+    }
+
+    printf("所有 MQTT 线程已结束\n");
     return 0;
 }
