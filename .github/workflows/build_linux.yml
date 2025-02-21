@@ -42,6 +42,9 @@ jobs:
     
      - name: Checkout code
        uses: actions/checkout@v4
+       with:
+         repository: eclipse-paho/paho.mqtt.c
+         ref: master
        
      - name: 下载gcc
        uses: lmq8267/dl-musl@main
@@ -61,9 +64,9 @@ jobs:
          mkdir -p build && cd build
          export CC="$CC -static"
          export CXX="$CXX -static"
-         cmake ..
+         cmake -DPAHO_BUILD_STATIC=ON -DPAHO_BUILD_SHARED=false ..
          make
-         
+         ls -l
          file MQTTClient-C/samples/linux/stdoutsubc 
          $STRIP MQTTClient-C/samples/linux/stdoutsubc
          file MQTTClient-C/samples/linux/stdoutsubc
