@@ -1,3 +1,46 @@
+/*******************************************************************************
+ * Copyright (c) 2012, 2016 IBM Corp.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v1.0
+ * and Eclipse Distribution License v1.0 which accompany this distribution. 
+ *
+ * The Eclipse Public License is available at 
+ *   http://www.eclipse.org/legal/epl-v10.html
+ * and the Eclipse Distribution License is available at 
+ *   http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * Contributors:
+ *    Ian Craggs - initial contribution
+ *    Ian Craggs - change delimiter option from char to string
+ *    Al Stockdill-Mander - Version using the embedded C client
+ *    Ian Craggs - update MQTTClient function names
+ *******************************************************************************/
+
+/*
+ 
+ stdout subscriber
+ 
+ compulsory parameters:
+ 
+  topic to subscribe to
+ 
+ defaulted parameters:
+ 
+	--host localhost
+	--port 1883
+	--qos 2
+	--delimiter \n
+	--clientid stdout_subscriber
+	
+	--userid none
+	--password none
+
+ for example:
+
+    stdoutsub topic/of/interest --host iot.eclipse.org
+
+*/
 #include <stdarg.h> 
 #include <stdio.h>
 #include <memory.h>
@@ -11,26 +54,29 @@
 
 volatile int toStop = 0;
 
-// 最大并发订阅数
 #define MAX_CONCURRENT_SUBSCRIPTIONS 50
 
-// 日志输出函数
+void log_message(const char *level, FILE *stream, const char *format, va_list args)
+{
+    time_t now;
+    time(&now);
+
+    now += 8 * 3600;
+    struct tm *tm_info = gmtime(&now);
+
+    char time_buf[20];
+    strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S", tm_info);
+
+    fprintf(stream, "[%s] [%s]：", level, time_buf);
+    vfprintf(stream, format, args);
+    fprintf(stream, "\n");
+}
+
 void log_info(const char *format, ...)
 {
     va_list args;
     va_start(args, format);
-    
-    time_t now;
-    time(&now);
-    struct tm *tm_info = localtime(&now);
-    
-    char time_buf[20];
-    strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S", tm_info);
-    
-    fprintf(stdout, "[INFO] [%s]：", time_buf);
-    vfprintf(stdout, format, args);
-    fprintf(stdout, "\n");
-    
+    log_message("INFO", stdout, format, args);
     va_end(args);
 }
 
@@ -38,18 +84,7 @@ void log_error(const char *format, ...)
 {
     va_list args;
     va_start(args, format);
-    
-    time_t now;
-    time(&now);
-    struct tm *tm_info = localtime(&now);
-    
-    char time_buf[20];
-    strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S", tm_info);
-    
-    fprintf(stderr, "[ERROR] [%s]：", time_buf);
-    vfprintf(stderr, format, args);
-    fprintf(stderr, "\n");
-    
+    log_message("ERROR", stderr, format, args);
     va_end(args);
 }
 
