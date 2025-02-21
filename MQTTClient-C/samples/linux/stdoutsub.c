@@ -276,11 +276,11 @@ void* subscribeTopic(void* topic_param)
     NetworkInit(&n);
 
     // 连接信息日志
-    log_info("正在连接到 MQTT 服务器：【%s:%d】", opts.host, opts.port);
+    log_info("【%s】<===正在连接到 MQTT 服务器===>【%s:%d】", topic, opts.host, opts.port);
     rc = NetworkConnect(&n, opts.host, opts.port);
     if (rc != 0)
     {
-        log_error("无法连接到服务器，状态码：%d", rc);
+        log_error("【%s】无法连接到服务器，状态码：%d", topic, rc);
         return NULL;
     }
 
@@ -298,21 +298,21 @@ void* subscribeTopic(void* topic_param)
     rc = MQTTConnect(&c, &data);
     if (rc != 0)
     {
-        log_error("连接失败，状态码：%d", rc);
+        log_error("【%s】连接失败，状态码：%d", topic, rc);
         NetworkDisconnect(&n);
         return NULL;
     }
 
-    log_info("成功连接到服务器！");
+    log_info("【%s】成功连接到服务器！", topic);
 
     rc = MQTTSubscribe(&c, topic, opts.qos, messageArrived);
     if (rc != 0)
     {
-        log_error("订阅失败，主题：%s，状态码：%d", topic, rc);
+        log_error("【%s】订阅失败，状态码：%d", topic, rc);
     }
     else
     {
-        log_info("成功订阅主题：【%s】", topic);
+        log_info("【%s】成功订阅主题！", topic);
     }
 
     while (!toStop)
@@ -348,7 +348,7 @@ int main(int argc, char** argv)
         if (strchr(topic, '#') || strchr(topic, '+'))
         {
             opts.showtopics = 1;
-            log_info("检测到通配符 # 或 + ，默认开启主题名显示。");
+            log_info("检测到主题名包含通配符 # 或 + ，默认开启主题名显示。");
         }
         topic = strtok(NULL, ",");
     }
