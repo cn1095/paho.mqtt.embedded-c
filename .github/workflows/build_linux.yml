@@ -44,7 +44,7 @@ jobs:
        uses: actions/checkout@v4
        with:
          repository: eclipse-paho/paho.mqtt.cpp
-         ref: master
+         ref: v1.5.1
        
      - name: 下载gcc
        uses: lmq8267/dl-musl@main
@@ -61,7 +61,6 @@ jobs:
         
      - name: 编译
        run: |
-         git checkout v1.5.1
          git submodule init
          git submodule update
          mkdir -p build && cd build
