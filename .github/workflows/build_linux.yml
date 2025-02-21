@@ -66,7 +66,7 @@ jobs:
          export CXX="$CXX -static"
          cmake -DPAHO_BUILD_STATIC=ON -DPAHO_BUILD_SHARED=false -DPAHO_HIGH_PERFORMANCE=TRUE ..
          make
-         ls -alh
+         find . -type f -executable
          file MQTTClient-C/samples/linux/stdoutsubc 
          $STRIP MQTTClient-C/samples/linux/stdoutsubc
          file MQTTClient-C/samples/linux/stdoutsubc
