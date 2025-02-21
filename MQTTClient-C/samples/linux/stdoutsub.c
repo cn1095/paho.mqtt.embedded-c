@@ -214,10 +214,6 @@ void getopts(int argc, char** argv)
 
 void messageArrived(MessageData* md)
 {
-	if (md == NULL || md->topicName == NULL || md->message == NULL) {
-        	fprintf(stderr, "错误：收到空消息，跳过处理。\n");
-        	return;
-    	}
 	MQTTMessage* message = md->message;
 
 	if (opts.showtopics)
@@ -258,8 +254,8 @@ void messageArrived(MessageData* md)
 int main(int argc, char** argv)
 {
 	int rc = 0;
-	unsigned char buf[1024];
-	unsigned char readbuf[1024];
+	unsigned char buf[100];
+	unsigned char readbuf[100];
 	
 	if (argc < 2)
 		usage();
@@ -273,7 +269,6 @@ int main(int argc, char** argv)
     	}
 
 	getopts(argc, argv);	
-	printf("\n状态码：0 表示成功，-1 表示失败。\n\n");
 	Network n;
 	MQTTClient c;
 
@@ -282,7 +277,7 @@ int main(int argc, char** argv)
 
 	NetworkInit(&n);
 	NetworkConnect(&n, opts.host, opts.port);
-	MQTTClientInit(&c, &n, 1000, buf, sizeof(buf), readbuf, sizeof(readbuf));
+	MQTTClientInit(&c, &n, 1000, buf, 100, readbuf, 100);
  
 	MQTTPacket_connectData data = MQTTPacket_connectData_initializer;       
 	data.willFlag = 0;
@@ -306,31 +301,31 @@ int main(int argc, char** argv)
     
     	printf("正在订阅主题：\n");
 	int topic_count = 0;
-    	char* token = strtok(topics, ",");
-	while (token != NULL)
+    	char* topic = strtok(topics, ",");
+	while (topic != NULL)
 	{
 		topic_count++;
-    		if (strchr(token, '#') || strchr(token, '+'))
+    		if (strchr(topic, '#') || strchr(topic, '+'))
     		{
         		opts.showtopics = 1;
-        		printf("  - %s  (检测到通配符 # 或 + ，默认开启主题名显示)\n", token);
+        		printf("  - %s  (检测到通配符 # 或 + ，默认开启主题名显示)\n", topic);
     		}
     		else
     		{
-        		printf("  - %s\n", token);
+        		printf("  - %s\n", topic);
     		}
 
-    		rc = MQTTSubscribe(&c, token, opts.qos, messageArrived);
+    		rc = MQTTSubscribe(&c, topic, opts.qos, messageArrived);
     		if (rc != 0)
         	{
-            		fprintf(stderr, "订阅失败：%s，状态码：%d\n", token, rc);
+            		fprintf(stderr, "订阅失败：%s，状态码：%d\n", topic, rc);
         	}
         	else
         	{
             		printf("    订阅成功\n");
         	}
 
-    		token = strtok(NULL, ",");  
+    		topic = strtok(NULL, ",");  
 	}
 	if (topic_count > 1) {
         	opts.showtopics = 1;
