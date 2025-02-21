@@ -183,8 +183,10 @@ void getopts(int argc, char** argv)
 			if (++count < argc)
 			{
 				if (strcmp(argv[count], "on") == 0)
+				{
 					opts.showtopics = 1;
 					printf("开启消息主题名显示\n");
+				}
 				else if (strcmp(argv[count], "off") == 0)
 					opts.showtopics = 0;
 				else
