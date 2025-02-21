@@ -61,7 +61,7 @@ jobs:
         
      - name: 编译
        run: |
-         git co v1.5.1
+         git checkout v1.5.1
          git submodule init
          git submodule update
          mkdir -p build && cd build
