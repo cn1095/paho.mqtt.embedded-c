@@ -207,6 +207,10 @@ void getopts(int argc, char** argv)
 
 void messageArrived(MessageData* md)
 {
+	if (md == NULL || md->topicName == NULL || md->message == NULL) {
+        	fprintf(stderr, "错误：收到空消息，跳过处理。\n");
+        	return;
+    	}
 	MQTTMessage* message = md->message;
 
 	if (opts.showtopics)
@@ -260,7 +264,6 @@ int main(int argc, char** argv)
         	fprintf(stderr, "未设置主题名，请输入需要订阅的主题！\n");
         	return -1;
     	}
-	char* token = strtok(topics, ",");  
 
 	getopts(argc, argv);	
 	printf("\n状态码：0 表示成功，-1 表示失败。\n\n");
@@ -295,8 +298,11 @@ int main(int argc, char** argv)
 	printf("连接服务器成功!\n");
     
     	printf("正在订阅主题：\n");
+	int topic_count = 0;
+    	char* token = strtok(topics, ",");
 	while (token != NULL)
 	{
+		topic_count++;
     		if (strchr(token, '#') || strchr(token, '+'))
     		{
         		opts.showtopics = 1;
@@ -319,6 +325,10 @@ int main(int argc, char** argv)
 
     		token = strtok(NULL, ",");  
 	}
+	if (topic_count > 1) {
+        	opts.showtopics = 1;
+		printf("检测到订阅多个主题，默认开启主题名显示\n");
+    	}
 	free(topics);  
 
 	while (!toStop)
