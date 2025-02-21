@@ -214,8 +214,17 @@ void getopts(int argc, char** argv)
 
 void messageArrived(MessageData* md)
 {
+	if (md == NULL || md->message == NULL || md->topicName == NULL)
+    	{
+        	fprintf(stderr, "messageArrived: 收到无效消息数据\n");
+        	return;
+    	}
 	MQTTMessage* message = md->message;
-
+	if (md->topicName->lenstring.data == NULL)
+    	{
+        	fprintf(stderr, "messageArrived: 主题名数据为空\n");
+        	return;
+    	}
 	if (opts.showtopics)
 		printf("%.*s\t", md->topicName->lenstring.len, md->topicName->lenstring.data);
 	if (opts.nodelimiter)
