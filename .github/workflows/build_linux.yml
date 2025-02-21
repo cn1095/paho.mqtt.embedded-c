@@ -62,12 +62,11 @@ jobs:
      - name: 编译
        run: |
          mkdir -p build && cd build
-         mkdir -p /opt/bin
          export CC="$CC -static"
          export CXX="$CXX -static"
          cmake -DPAHO_BUILD_STATIC=ON -DPAHO_BUILD_SHARED=false -DPAHO_HIGH_PERFORMANCE=TRUE -DPAHO_ENABLE_TESTING=false -DCMAKE_INSTALL_PREFIX=/opt/bin ..
          make
-         mke install DESTDIR=/opt/bin
+         cpack --verbose
          find . -type f -executable
          #file MQTTClient-C/samples/linux/stdoutsubc 
          #$STRIP MQTTClient-C/samples/linux/stdoutsubc
@@ -77,4 +76,4 @@ jobs:
      - uses: actions/upload-artifact@v4
        with:
         name: stdoutsubc-${{ matrix.target }}
-        path: /opt/bin
+        path: build/
