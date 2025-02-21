@@ -184,6 +184,7 @@ void getopts(int argc, char** argv)
 			{
 				if (strcmp(argv[count], "on") == 0)
 					opts.showtopics = 1;
+					printf("开启消息主题名显示\n");
 				else if (strcmp(argv[count], "off") == 0)
 					opts.showtopics = 0;
 				else
@@ -251,8 +252,8 @@ void messageArrived(MessageData* md)
 int main(int argc, char** argv)
 {
 	int rc = 0;
-	unsigned char buf[100];
-	unsigned char readbuf[100];
+	unsigned char buf[1024];
+	unsigned char readbuf[1024];
 	
 	if (argc < 2)
 		usage();
@@ -275,7 +276,7 @@ int main(int argc, char** argv)
 
 	NetworkInit(&n);
 	NetworkConnect(&n, opts.host, opts.port);
-	MQTTClientInit(&c, &n, 1000, buf, 100, readbuf, 100);
+	MQTTClientInit(&c, &n, 1000, buf, sizeof(buf), readbuf, sizeof(readbuf));
  
 	MQTTPacket_connectData data = MQTTPacket_connectData_initializer;       
 	data.willFlag = 0;
