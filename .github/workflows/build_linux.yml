@@ -67,7 +67,7 @@ jobs:
          mkdir -p build && cd build
          export CC="$CC -static"
          export CXX="$CXX -static"
-         cmake -DPAHO_BUILD_STATIC=ON -DPAHO_BUILD_SHARED=false -DPAHO_HIGH_PERFORMANCE=TRUE -DPAHO_ENABLE_TESTING=false -DPAHO_WITH_MQTT_C=ON ..
+         cmake -DPAHO_BUILD_STATIC=ON -DPAHO_BUILD_SHARED=false -DPAHO_WITH_SSL=false -DPAHO_HIGH_PERFORMANCE=TRUE -DPAHO_ENABLE_TESTING=false -DPAHO_WITH_MQTT_C=ON ..
          make
          cpack --verbose
          find . -type f -executable
