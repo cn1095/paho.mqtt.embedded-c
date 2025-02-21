@@ -43,7 +43,7 @@ jobs:
      - name: Checkout code
        uses: actions/checkout@v4
        with:
-         repository: eclipse-paho/paho.mqtt.c
+         repository: eclipse-paho/paho.mqtt.cpp
          ref: master
        
      - name: 下载gcc
