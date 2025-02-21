@@ -27,7 +27,7 @@ void log_info(const char *format, ...)
     char time_buf[20];
     strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S", tm_info);
     
-    fprintf(stdout, "[INFO] [%s] ", time_buf);
+    fprintf(stdout, "[INFO] [%s]：", time_buf);
     vfprintf(stdout, format, args);
     fprintf(stdout, "\n");
     
@@ -46,7 +46,7 @@ void log_error(const char *format, ...)
     char time_buf[20];
     strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S", tm_info);
     
-    fprintf(stderr, "[ERROR] [%s] ", time_buf);
+    fprintf(stderr, "[ERROR] [%s]：", time_buf);
     vfprintf(stderr, format, args);
     fprintf(stderr, "\n");
     
@@ -55,23 +55,25 @@ void log_error(const char *format, ...)
 
 void usage()
 {
-    log_info("====================================");
-    log_info("       MQTT 标准输出订阅器         ");
-    log_info("====================================");
-    log_info("用法: stdoutsub 主题名称 <命令>");
-    log_info("\n可选命令:");
-    log_info("  --host <主机名>         （默认: bemfa.com，MQTT 服务器地址）");
-    log_info("  --port <端口>           （默认: 9501，MQTT 服务器端口）");
-    log_info("  --qos <服务质量>        （默认: 1，MQTT QoS 等级，可选 0 或 1）");
-    log_info("  --delimiter <分隔符>    （默认: \\n，消息之间的分隔符）");
-    log_info("  --clientid <账户私钥>   （默认: 主机名 + 时间戳）");
-    log_info("  --username <用户名>     （默认: none，无用户名）");
-    log_info("  --password <密码>       （默认: none，无密码）");
-    log_info("  --showtopics <on|off>   （默认: off，是否显示主题名，若主题含通配符则默认开启）");
-    log_info("  --script <脚本路径>     （收到 MQTT 消息时，执行指定脚本）");
-    log_info("\n示例:");
-    log_info("  stdoutsub 主题名 --host bemfa.com --port 9501 --qos 1 --clientid asa48fd88e53d356ab21841a951284d");
-    log_info("\n");
+    printf("\n");
+    printf("====================================\n");
+    printf("       MQTT 标准输出订阅器         \n");
+    printf("====================================\n");
+    printf("用法: stdoutsub 主题名称 <命令>\n");
+    printf("\n可选命令:\n");
+    printf("  --host <主机名>         （默认: bemfa.com，MQTT 服务器地址）\n");
+    printf("  --port <端口>           （默认: 9501，MQTT 服务器端口）\n");
+    printf("  --qos <服务质量>        （默认: 1，MQTT QoS 等级，可选 0 或 1）\n");
+    printf("  --delimiter <分隔符>    （默认: \\n，消息之间的分隔符）\n");
+    printf("  --clientid <账户私钥>   （默认: 主机名 + 时间戳）\n");
+    printf("  --username <用户名>     （默认: none，无用户名）\n");
+    printf("  --password <密码>       （默认: none，无密码）\n");
+    printf("  --showtopics <on|off>   （默认: off，是否显示主题名，若主题含通配符则默认开启）\n");
+    printf("  --script <脚本路径>     （收到 MQTT 消息时，执行指定脚本）\n");
+    printf("\n");
+    printf("示例:\n");
+    printf("  stdoutsub 主题名 --host bemfa.com --port 9501 --qos 1 --clientid asa48fd88e53d356ab21841a951284d\n");
+    printf("\n");
     exit(-1);
 }
 
@@ -178,7 +180,7 @@ void getopts(int argc, char** argv)
                 if (strcmp(argv[count], "on") == 0)
                 {
                     opts.showtopics = 1;
-                    log_info("开启消息主题名显示");
+                    log_info("开启消息主题名显示。");
                 }
                 else if (strcmp(argv[count], "off") == 0)
                 {
@@ -203,6 +205,13 @@ void getopts(int argc, char** argv)
     }
 }
 
+int is_command_available(const char *command)
+{
+    char buffer[128];
+    snprintf(buffer, sizeof(buffer), "which %s > /dev/null 2>&1", command);
+    return system(buffer) == 0;  
+}
+
 void messageArrived(MessageData* md)
 {
     MQTTMessage* message = md->message;
@@ -222,10 +231,26 @@ void messageArrived(MessageData* md)
         payload_buf[len] = '\0';
 
         char command[2048];
+        const char *shell = NULL;
+
+        if (is_command_available("sh"))
+        {
+            shell = "sh";
+        }
+        else if (is_command_available("bash"))
+        {
+            shell = "bash";
+        }
+        else
+        {
+            log_error("错误：找不到可用的 shell（sh 或 bash）！");
+            return; 
+        }
         if (opts.showtopics)
         {
             // 格式: <主题名> "<消息>"
-            snprintf(command, sizeof(command), "sh %s \"%.*s\" \"%s\" &",
+            snprintf(command, sizeof(command), "%s %s \"%.*s\" \"%s\" &",
+                     shell,
                      opts.script,
                      md->topicName->lenstring.len, md->topicName->lenstring.data,
                      payload_buf);
@@ -233,7 +258,7 @@ void messageArrived(MessageData* md)
         else 
         {
             // 仅发送消息，不带主题 "<消息>"
-            snprintf(command, sizeof(command), "sh %s \"%s\" &", opts.script, payload_buf);
+            snprintf(command, sizeof(command), "%s %s \"%s\" &", shell, opts.script, payload_buf);
         }
 
         system(command);
@@ -251,14 +276,13 @@ void* subscribeTopic(void* topic_param)
     NetworkInit(&n);
 
     // 连接信息日志
-    log_info("正在连接到 MQTT 服务器 [%s:%d]...", opts.host, opts.port);
+    log_info("正在连接到 MQTT 服务器：【%s:%d】", opts.host, opts.port);
     rc = NetworkConnect(&n, opts.host, opts.port);
     if (rc != 0)
     {
         log_error("无法连接到服务器，状态码：%d", rc);
         return NULL;
     }
-    log_info("成功连接到服务器 [%s:%d]", opts.host, opts.port);
 
     MQTTClientInit(&c, &n, 1000, buf, 100, readbuf, 100);
 
@@ -279,7 +303,7 @@ void* subscribeTopic(void* topic_param)
         return NULL;
     }
 
-    log_info("成功连接到服务器");
+    log_info("成功连接到服务器！");
 
     rc = MQTTSubscribe(&c, topic, opts.qos, messageArrived);
     if (rc != 0)
@@ -288,7 +312,7 @@ void* subscribeTopic(void* topic_param)
     }
     else
     {
-        log_info("成功订阅主题：%s", topic);
+        log_info("成功订阅主题：【%s】", topic);
     }
 
     while (!toStop)
@@ -324,7 +348,7 @@ int main(int argc, char** argv)
         if (strchr(topic, '#') || strchr(topic, '+'))
         {
             opts.showtopics = 1;
-            log_info("检测到通配符 # 或 + ，默认开启主题名显示");
+            log_info("检测到通配符 # 或 + ，默认开启主题名显示。");
         }
         topic = strtok(NULL, ",");
     }
@@ -332,7 +356,7 @@ int main(int argc, char** argv)
     if (topic_count > 1)
     {
         opts.showtopics = 1;
-        log_info("检测到订阅多个主题，默认开启主题名显示");
+        log_info("检测到订阅多个主题，默认开启主题名显示。");
     }
 
     free(topics);
