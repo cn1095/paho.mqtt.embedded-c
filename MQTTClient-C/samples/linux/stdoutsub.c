@@ -253,15 +253,14 @@ int main(int argc, char** argv)
 	if (argc < 2)
 		usage();
 	
-	char* topic = argv[1];
-
-	if (strchr(topic, '#') || strchr(topic, '+'))
-	{
-		opts.showtopics = 1;
-		printf("检测到主题名称中包含通配符 # 或 + ，默认开启消息输出主题名。\n");
-	}
-	if (opts.showtopics)
-		printf("主题名是： %s\n", topic);
+	char* topic_list = argv[1];  
+	char* topics = strdup(topic_list);  
+	if (topics == NULL) 
+    	{
+        	fprintf(stderr, "未设置主题名，请输入需要订阅的主题！\n");
+        	return -1;
+    	}
+	char* token = strtok(topics, ",");  
 
 	getopts(argc, argv);	
 	printf("\n状态码：0 表示成功，-1 表示失败。\n\n");
@@ -287,11 +286,40 @@ int main(int argc, char** argv)
 	printf("正在连接到 【%s %d】\n", opts.host, opts.port);
 	
 	rc = MQTTConnect(&c, &data);
-	printf("连接状态： %d\n", rc);
+	if (rc != 0)  
+    	{
+        	fprintf(stderr, "连接失败，状态码：%d\n", rc);
+        	free(topics);
+        	return -1;
+    	}
+	printf("连接服务器成功!\n");
     
-    	printf("正在订阅主题： 【%s】\n", topic);
-	rc = MQTTSubscribe(&c, topic, opts.qos, messageArrived);
-	printf("订阅状态： %d\n", rc);
+    	printf("正在订阅主题：\n");
+	while (token != NULL)
+	{
+    		if (strchr(token, '#') || strchr(token, '+'))
+    		{
+        		opts.showtopics = 1;
+        		printf("  - %s  (检测到通配符 # 或 + ，默认开启主题名显示)\n", token);
+    		}
+    		else
+    		{
+        		printf("  - %s\n", token);
+    		}
+
+    		rc = MQTTSubscribe(&c, token, opts.qos, messageArrived);
+    		if (rc != 0)
+        	{
+            		fprintf(stderr, "订阅失败：%s，状态码：%d\n", token, rc);
+        	}
+        	else
+        	{
+            		printf("    订阅成功\n");
+        	}
+
+    		token = strtok(NULL, ",");  
+	}
+	free(topics);  
 
 	while (!toStop)
 	{
