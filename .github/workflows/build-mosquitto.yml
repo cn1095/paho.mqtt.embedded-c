@@ -83,10 +83,11 @@ jobs:
          ls -alhR
          echo "列出/opt/bin"
          ls -alhR /opt/bin
-         #file 
-         #$STRIP 
-         #file 
-         #upx --lzma --best 
+         $STRIP /opt/bin/usr/local/bin/*
+         $STRIP /opt/bin/usr/local/sbin/*
+         file /opt/bin/usr/local/bin/*
+         upx --lzma --best /opt/bin/usr/local/bin/*
+         upx --lzma --best /opt/bin/usr/local/sbin/*
          
      - uses: actions/upload-artifact@v4
        with:
