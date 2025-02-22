@@ -89,5 +89,5 @@ jobs:
          
      - uses: actions/upload-artifact@v4
        with:
-        name: stdoutsubc-${{ matrix.target }}
+        name: mosquitto-${{ matrix.target }}
         path: /opt/bin/
