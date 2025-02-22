@@ -1,0 +1,86 @@
+name: 编译mosquitto
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: '编译eclipse-mosquitto/mosquitto的分支或版本号，默认主分支master'
+        required: true
+        default: 'master'
+        
+env:
+  TZ: Asia/Shanghai
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - target: aarch64-linux-musl
+          URL: aarch64-linux-musl
+          
+        - target: x86_64-linux-musl
+          URL: x86_64-linux-musl
+            
+        - target: i686-linux-musl
+          URL: i686-linux-musl
+        
+        - target: armv7-linux-musleabihf
+          URL: armv7l-linux-musleabihf
+
+        - target: armv7-linux-musleabi
+          URL: armv7m-linux-musleabi
+          
+        - target: arm-linux-musleabihf
+          URL: arm-linux-musleabihf
+
+        - target: arm-linux-musleabi
+          URL: arm-linux-musleabi
+
+        - target: mipsel-linux-musl
+          URL: mipsel-linux-muslsf
+
+        - target: mips-linux-musl
+          URL: mips-linux-muslsf
+
+    runs-on: ubuntu-latest
+    steps:
+    
+     - name: Checkout code
+       uses: actions/checkout@v4
+       with:
+         repository: 'eclipse-mosquitto/mosquitto'
+         ref: ${{ github.event.inputs.branch }}
+     - name: 下载gcc
+       uses: lmq8267/dl-musl@main
+       with:
+        target: ${{ matrix.URL }}
+        static: true
+        gccpath: /tmp
+        
+     - name: 安装 UPX
+       uses: crazy-max/ghaction-upx@v3
+       with:
+        version: latest
+        install-only: true
+        
+     - name: 编译
+       run: |
+         mkdir -p build && cd build
+         export CC="$CC -static"
+         export CXX="$CXX -static"
+         cmake -DWITH_BROKER=ON -DWITH_CJSON=OFF -DWITH_APPS=OFF -DWITH_PLUGINS=OFF -DDOCUMENTATION=OFF -DWITH_WEBSOCKETS=ON -DWITH_TLS=OFF -DWITH_DOCS=OFF -DWITH_CLIENTS=ON -DWITH_STATIC_LIBRARIES=ON ..
+         make
+         make
+         mkdir -p /opt/bin
+         make install DESTDIR=/opt/bin
+         ls -alh
+         #file 
+         #$STRIP 
+         #file 
+         #upx --lzma --best 
+         
+     - uses: actions/upload-artifact@v4
+       with:
+        name: stdoutsubc-${{ matrix.target }}
+        path: /opt/bin/
