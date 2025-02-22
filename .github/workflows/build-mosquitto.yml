@@ -77,6 +77,7 @@ jobs:
          #WITH_WEBSOCKETS=yes STATIC_WEBSOCKETS=yes
          mkdir -p /opt/bin
          make install DESTDIR=/opt/bin
+         file /opt/bin/usr/local/bin/*
          echo "列出当前目录"
          ls -alhR
          echo "列出/opt/bin"
