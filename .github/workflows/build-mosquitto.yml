@@ -78,6 +78,12 @@ jobs:
            -DWITH_DOCS=OFF -DWITH_CLIENTS=ON -DWITH_STATIC_LIBRARIES=ON ..
          mkdir -p /opt/bin
          make install DESTDIR=/opt/bin
+
+         cd ../apps/mosquitto_passwd
+         make mosquitto_passwd
+         make install DESTDIR=/opt/bin
+
+         cd ../build
          file /opt/bin/usr/local/bin/*
          echo "列出当前目录"
          ls -alhR
