@@ -67,6 +67,7 @@ jobs:
      - name: 编译
        run: |
          sed -i 's/SHARED/STATIC/g' lib/cpp/CMakeLists.txt
+         sed -i 's/SHARED/STATIC/g' lib/CMakeLists.txt
          mkdir -p build && cd build
          export CC="$CC -static"
          export CXX="$CXX -static"
