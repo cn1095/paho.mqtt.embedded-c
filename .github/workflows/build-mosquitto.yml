@@ -68,10 +68,12 @@ jobs:
        run: |
          sed -i 's/SHARED/STATIC/g' lib/cpp/CMakeLists.txt
          sed -i 's/SHARED/STATIC/g' lib/CMakeLists.txt
+         
          mkdir -p build && cd build
          export CC="$CC -static"
          export CXX="$CXX -static"
          #
+         sudo apt-get install libwebsockets-dev
          cmake -DWITH_BROKER=ON -DWITH_WEBSOCKETS=ON -DSTATIC_WEBSOCKETS=ON -DWITH_CJSON=OFF -DWITH_APPS=OFF -DWITH_SHARED_LIBRARIES=OFF -DWITH_PLUGINS=OFF -DDOCUMENTATION=OFF -DWITH_TLS=OFF -DWITH_DOCS=OFF -DWITH_CLIENTS=ON -DWITH_STATIC_LIBRARIES=ON ..
          #make binary WITH_CJSON=no WITH_TLS=no WITH_DOCS=no WITH_SHARED_LIBRARIES=no
          #WITH_WEBSOCKETS=yes STATIC_WEBSOCKETS=yes
