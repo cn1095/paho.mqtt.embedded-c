@@ -71,10 +71,12 @@ jobs:
          export CXX="$CXX -static"
          cmake -DWITH_BROKER=ON -DWITH_CJSON=OFF -DWITH_APPS=OFF -DWITH_PLUGINS=OFF -DDOCUMENTATION=OFF -DWITH_WEBSOCKETS=ON -DWITH_TLS=OFF -DWITH_DOCS=OFF -DWITH_CLIENTS=ON -DWITH_STATIC_LIBRARIES=ON ..
          make
-         make
          mkdir -p /opt/bin
          make install DESTDIR=/opt/bin
-         ls -alh
+         echo "列出当前目录"
+         ls -alhR
+         echo "列出/opt/bin"
+         ls -alhR /opt/bin
          #file 
          #$STRIP 
          #file 
