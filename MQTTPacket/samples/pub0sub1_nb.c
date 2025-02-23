@@ -62,11 +62,23 @@ int parse_args(int argc, char *argv[], MQTTConfig *config)
             config->msg = argv[i + 1];
             i++;
         } else {
-            printf("未知参数: %s\n", argv[i]);
+            print_usage();
             return -1;
         }
     }
     return 0;
+}
+
+void print_usage()
+{
+    printf("用法: %s --host <host> --port <port> --clientid <client_id> --topic <topic> --msg <message> [--username <username>] [--password <password>]\n", program_name);
+    printf("    --host      MQTT服务器地址（默认：bemfa.com）\n");
+    printf("    --port      MQTT服务器端口（默认: 9501）\n");
+    printf("    --clientid  账户私钥（不能为空）\n");
+    printf("    --topic     主题名称（不能为空）\n");
+    printf("    --msg       要发布的指令（不能为空）\n");
+    printf("    --username  可选，巴法MQTT用户名\n");
+    printf("    --password  可选，巴法MQTT密码\n");
 }
 
 int main(int argc, char *argv[])
@@ -83,7 +95,16 @@ int main(int argc, char *argv[])
 
     // 解析命令行参数
     if (parse_args(argc, argv, &config) != 0) {
-        printf("参数解析失败，退出程序！\n");
+        print_usage();
+        return -1;
+    }
+
+    // 检查必需的参数
+    if (config.clientID == NULL || strlen(config.clientID) == 0 ||
+        config.topic == NULL || strlen(config.topic) == 0 ||
+        config.msg == NULL || strlen(config.msg) == 0) {
+        printf("错误: 账户私钥、主题名称和指令不能为空。\n");
+        print_usage();
         return -1;
     }
 
@@ -94,7 +115,7 @@ int main(int argc, char *argv[])
     int buflen = sizeof(buf);
     int msgid = 1;
     MQTTString topicString = MQTTString_initializer;
-    int req_qos = 0;
+    int req_qos = 1;
     char* payload = config.msg;
     int payloadlen = strlen(payload);
     int len = 0;
@@ -186,11 +207,11 @@ int main(int argc, char *argv[])
     }
 
     /* 发布消息 */
-    printf("开始发布消息：%s\n", payload);
+    printf("开始发布指令：%s\n", payload);
     len = MQTTSerialize_publish(buf, buflen, 0, 0, 0, 0, topicString, (unsigned char*)payload, payloadlen);
     rc = transport_sendPacketBuffer(mysock, buf, len);
 
-    printf("发布消息完成，等待响应...\n");
+    printf("发布指令完成，等待响应状态...\n");
 
     /* 接收消息 */
     while (!toStop) {
@@ -206,13 +227,17 @@ int main(int argc, char *argv[])
 
             rc = MQTTDeserialize_publish(&dup, &qos, &retained, &msgid, &receivedTopic,
                     &payload_in, &payloadlen_in, buf, buflen);
-            printf("接收到消息：%.*s\n", payloadlen_in, payload_in);
-            break; // 只接收一次消息
+            printf("接收到指令状态：%.*s\n", payloadlen_in, payload_in);
+            if (memcmp(payload_in, payload, payloadlen_in) == 0) {
+                printf("更新成功！\n");
+                break; 
+            } else {
+                printf("更新异常，请检查！\n");
+            }
         }
     }
 
     /* 断开连接 */
-    printf("断开连接\n");
     len = MQTTSerialize_disconnect(buf, buflen);
     rc = transport_sendPacketBuffer(mysock, buf, len);
 
