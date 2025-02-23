@@ -40,7 +40,7 @@
 #include <memory.h>
 #include <pthread.h>
 #include <time.h>
-#define MQTT_DEBUG 1
+
 #include "MQTTClient.h"
 
 #define DEFAULT_STACK_SIZE -1
