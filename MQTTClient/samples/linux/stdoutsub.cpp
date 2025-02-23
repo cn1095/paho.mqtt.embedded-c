@@ -233,6 +233,13 @@ void getopts(int argc, char** argv)
 	
 }
 
+int is_command_available(const char *command)
+{
+    char buffer[128];
+    snprintf(buffer, sizeof(buffer), "which %s > /dev/null 2>&1", command);
+    return system(buffer) == 0;  
+}
+
 void messageArrived(MQTT::MessageData& md)
 {
 	MQTT::Message &message = md.message;
@@ -247,8 +254,8 @@ void messageArrived(MQTT::MessageData& md)
 	if (opts.script)
     	{
         	char payload_buf[1024];
-        	int len = (message->payloadlen < 1023) ? message->payloadlen : 1023;
-        	memcpy(payload_buf, message->payload, len);
+        	int len = (message.payloadlen < 1023) ? message.payloadlen : 1023;
+        	memcpy(payload_buf, message.payload, len);
         	payload_buf[len] = '\0';
 
         	char command[2048];
@@ -273,7 +280,7 @@ void messageArrived(MQTT::MessageData& md)
             		snprintf(command, sizeof(command), "%s %s \"%.*s\" \"%s\" &",
                      	shell,
                      	opts.script,
-                     	md->topicName->lenstring.len, md->topicName->lenstring.data,
+                     	md.topicName.lenstring.len, md.topicName.lenstring.data,
                      	payload_buf);
         	}
         	else 
@@ -342,7 +349,7 @@ void *subscribeTopic(void *topic_param)
     client.disconnect();
     ipstack.disconnect();
 
-    free(topic); // 释放 strdup 分配的内存
+    free(topic); 
     return NULL;
 }
 
@@ -355,14 +362,14 @@ int main(int argc, char **argv)
     signal(SIGINT, cfinish);
     signal(SIGTERM, cfinish);
 
-    char *topic_list = strdup(argv[1]); // 复制输入的主题列表，避免 `strtok` 修改原数据
+    char *topic_list = strdup(argv[1]); 
     pthread_t threads[MAX_CONCURRENT_SUBSCRIPTIONS];
 
     int thread_count = 0;
     char *topic = strtok(topic_list, ",");
     while (topic != NULL && thread_count < MAX_CONCURRENT_SUBSCRIPTIONS)
     {
-        char *topic_copy = strdup(topic); // 复制主题字符串，避免 `strtok` 影响
+        char *topic_copy = strdup(topic); 
         pthread_create(&threads[thread_count], NULL, subscribeTopic, (void *)topic_copy);
         thread_count++;
         topic = strtok(NULL, ",");
