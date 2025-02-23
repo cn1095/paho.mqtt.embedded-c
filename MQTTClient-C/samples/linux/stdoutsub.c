@@ -360,6 +360,7 @@ int main(int argc, char** argv)
 	    
 	char* topics_for_subscribe = strdup(topic_list);
         topic = strtok(topics_for_subscribe, ",");
+        int subscribed_count = 0;
         while (topic != NULL)
         {
             if (MQTTSubscribe(&c, topic, opts.qos, messageArrived) != 0)
@@ -369,10 +370,18 @@ int main(int argc, char** argv)
             else
             {
                 log_info("成功订阅主题【%s】", topic);
+		subscribed_count++;
             }
             topic = strtok(NULL, ",");
         }
 	free(topics_for_subscribe);
+
+	if (subscribed_count == 0)
+        {
+            log_error("未能成功订阅任何主题，等待 5 秒后重试...");
+            sleep(5);
+            continue;
+        }
 	    
         while (!toStop)
         {
@@ -389,5 +398,6 @@ int main(int argc, char** argv)
         sleep(5);
     }
 
+    free(topic_list);
     return 0;
 }
