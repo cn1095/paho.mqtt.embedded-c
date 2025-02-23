@@ -303,7 +303,8 @@ int main(int argc, char** argv)
         usage();
 
     char* topic_list = argv[1];
-    char* topics = strdup(topic_list);
+    char* topics = strdup(topic_list); 
+    char* topics_for_subscribe = strdup(topic_list);  
     getopts(argc, argv);
 
     Network n;
@@ -340,6 +341,24 @@ int main(int argc, char** argv)
 
         log_info("成功连接到 MQTT 服务器！");
         char* topic = strtok(topics, ",");
+	int topic_count = 0;
+    	while (topic)
+    	{
+        	topic_count++;
+        	if (strchr(topic, '#') || strchr(topic, '+'))
+		{
+			log_info("检测到主题名包含通配符 # 或 + ，默认开启主题名显示。");
+            		opts.showtopics = 1;
+		}
+        	topic = strtok(NULL, ",");
+    	}
+    	if (topic_count > 1)
+	{
+        	opts.showtopics = 1;
+		log_info("检测到订阅多个主题，默认开启主题名显示。");
+	}
+
+	topic = strtok(topics_for_subscribe, ",");
         while (topic != NULL)
         {
             if (MQTTSubscribe(&c, topic, opts.qos, messageArrived) != 0)
@@ -369,5 +388,6 @@ int main(int argc, char** argv)
     }
 
     free(topics);
+    free(topics_for_subscribe);
     return 0;
 }
