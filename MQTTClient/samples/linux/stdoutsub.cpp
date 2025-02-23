@@ -39,7 +39,8 @@
 #include <stdio.h>
 #include <memory.h>
 #include <time.h>
-
+#include <vector>
+#include <string>
 #include "MQTTClient.h"
 
 #define DEFAULT_STACK_SIZE -1
