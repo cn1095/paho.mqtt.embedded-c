@@ -1,34 +1,12 @@
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
-
-#include "MQTTPacket.h"
-#include "transport.h"
+#include <string.h>
 
 #ifdef _WIN32
 #include <windows.h>
 #else
 #include <unistd.h>
 #endif
-
-/* This is in order to get an asynchronous signal to stop the sample,
-as the code loops waiting for msgs on the subscribed topic.
-Your actual code will depend on your hw and approach*/
-#include <signal.h>
-
-int toStop = 0;
-void print_usage(char *program_name);
-void cfinish(int sig)
-{
-    signal(SIGINT, NULL);
-    toStop = 1;
-}
-
-void stop_init(void)
-{
-    signal(SIGINT, cfinish);
-    signal(SIGTERM, cfinish);
-}
 
 /* 参数结构体 */
 typedef struct {
@@ -40,6 +18,9 @@ typedef struct {
     char* topic;
     char* msg;
 } MQTTConfig;
+
+/* 声明 print_usage 函数 */
+void print_usage(char *program_name);
 
 /* 解析命令行参数 */
 int parse_args(int argc, char *argv[], MQTTConfig *config)
@@ -68,14 +49,15 @@ int parse_args(int argc, char *argv[], MQTTConfig *config)
             config->msg = argv[i + 1];
             i++;
         } else {
-            print_usage();
+            print_usage(argv[0]);  // 传递程序名称
             return -1;
         }
     }
     return 0;
 }
 
-void print_usage()
+/* 打印程序使用说明 */
+void print_usage(char *program_name)
 {
     printf("用法: %s --host <host> --port <port> --clientid <client_id> --topic <topic> --msg <message> [--username <username>] [--password <password>]\n", program_name);
     printf("    --host      MQTT服务器地址（默认：bemfa.com）\n");
@@ -101,7 +83,7 @@ int main(int argc, char *argv[])
 
     // 解析命令行参数
     if (parse_args(argc, argv, &config) != 0) {
-        print_usage();
+        print_usage(argv[0]);  // 传递程序名称
         return -1;
     }
 
@@ -110,7 +92,7 @@ int main(int argc, char *argv[])
         config.topic == NULL || strlen(config.topic) == 0 ||
         config.msg == NULL || strlen(config.msg) == 0) {
         printf("错误: 账户私钥、主题名称和指令不能为空。\n");
-        print_usage();
+        print_usage(argv[0]);  // 传递程序名称
         return -1;
     }
 
