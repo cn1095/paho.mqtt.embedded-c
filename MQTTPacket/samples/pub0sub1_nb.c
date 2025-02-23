@@ -5,13 +5,19 @@
 #include "MQTTPacket.h"
 #include "transport.h"
 
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <unistd.h>
+#endif
+
 /* This is in order to get an asynchronous signal to stop the sample,
 as the code loops waiting for msgs on the subscribed topic.
 Your actual code will depend on your hw and approach*/
 #include <signal.h>
 
 int toStop = 0;
-
+void print_usage(char *program_name);
 void cfinish(int sig)
 {
     signal(SIGINT, NULL);
@@ -163,7 +169,11 @@ int main(int argc, char *argv[])
             retry_count++;
         }
         if (retry_count < max_retries) {
-            sleep(1);
+            #ifdef _WIN32
+                Sleep(1000); 
+            #else
+                sleep(1);  
+            #endif
         }
     }
 
@@ -197,7 +207,11 @@ int main(int argc, char *argv[])
             retry_count++;
         }
         if (retry_count < max_retries) {
-            sleep(1);
+            #ifdef _WIN32
+                Sleep(1000); 
+            #else
+                sleep(1);  
+            #endif
         }
     }
 
