@@ -2,12 +2,31 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "MQTTPacket.h"
+#include "transport.h"
+
 #ifdef _WIN32
 #include <windows.h>
 #else
 #include <unistd.h>
 #endif
 
+#include <signal.h>
+int toStop = 0;
+
+void print_usage(char *program_name);
+
+void cfinish(int sig)
+{
+    signal(SIGINT, NULL);
+    toStop = 1;
+}
+
+void stop_init(void)
+{
+    signal(SIGINT, cfinish);
+    signal(SIGTERM, cfinish);
+}
 /* 参数结构体 */
 typedef struct {
     char* host;
