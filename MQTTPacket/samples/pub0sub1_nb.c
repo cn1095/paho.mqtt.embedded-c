@@ -122,7 +122,7 @@ int main(int argc, char *argv[])
     int buflen = sizeof(buf);
     int msgid = 1;
     MQTTString topicString = MQTTString_initializer;
-    int req_qos = 1;
+    int req_qos = 0;
     char* payload = config.msg;
     int payloadlen = strlen(payload);
     int len = 0;
