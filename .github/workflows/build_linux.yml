@@ -67,7 +67,8 @@ jobs:
          file MQTTClient-C/samples/linux/stdoutsubc 
          #$STRIP MQTTClient-C/samples/linux/stdoutsubc
          file MQTTClient-C/samples/linux/stdoutsubc
-         #upx --lzma --best MQTTClient-C/samples/linux/stdoutsubc
+         upx --lzma --best MQTTClient/samples/linux/stdoutsub
+         upx --lzma --best MQTTClient-C/samples/linux/stdoutsubc
          
      - uses: actions/upload-artifact@v4
        with:
