@@ -302,62 +302,80 @@ void messageArrived(MessageData* md)
 
 void* subscribeTopic(void* topic_param)
 {
-    char* topic = (char*)topic_param;
+    char* topic = strdup((char*)topic_param);  // 复制主题，防止传递的指针失效
     int rc = 0;
     MQTTClient c;
     unsigned char buf[100];
     unsigned char readbuf[100];
     Network n;
-    NetworkInit(&n);
 
-    // 连接信息日志
-    log_info("【%s】<===正在连接到 MQTT 服务器===>【%s:%d】", topic, opts.host, opts.port);
-    rc = NetworkConnect(&n, opts.host, opts.port);
-    if (rc != 0)
+    while (!toStop)  // 无限循环，直到 `toStop` 设为 `true`
     {
-        log_error("【%s】无法连接到服务器，状态码：%d", topic, rc);
-        return NULL;
-    }
+        NetworkInit(&n);
 
-    MQTTClientInit(&c, &n, 1000, buf, 100, readbuf, 100);
+        log_info("【%s】<=== 正在连接到 MQTT 服务器 ===>【%s:%d】", topic, opts.host, opts.port);
+        rc = NetworkConnect(&n, opts.host, opts.port);
+        if (rc != 0)
+        {
+            log_error("【%s】无法连接到服务器，状态码：%d，5 秒后重试...", topic, rc);
+            NetworkDisconnect(&n);
+            sleep(5); // 5 秒后重试
+            continue;
+        }
 
-    MQTTPacket_connectData data = MQTTPacket_connectData_initializer;
-    data.willFlag = 0;
-    data.MQTTVersion = 3;
-    data.clientID.cstring = opts.clientid;
-    data.username.cstring = opts.username;
-    data.password.cstring = opts.password;
-    data.keepAliveInterval = 10;
-    data.cleansession = 1;
+        MQTTClientInit(&c, &n, 1000, buf, 100, readbuf, 100);
 
-    rc = MQTTConnect(&c, &data);
-    if (rc != 0)
-    {
-        log_error("【%s】连接失败，状态码：%d", topic, rc);
-        NetworkDisconnect(&n);
-        return NULL;
-    }
+        MQTTPacket_connectData data = MQTTPacket_connectData_initializer;
+        data.willFlag = 0;
+        data.MQTTVersion = 3;
+        data.clientID.cstring = opts.clientid;
+        data.username.cstring = opts.username;
+        data.password.cstring = opts.password;
+        data.keepAliveInterval = 10;
+        data.cleansession = 1;
 
-    log_info("【%s】成功连接到服务器！", topic);
+        rc = MQTTConnect(&c, &data);
+        if (rc != 0)
+        {
+            log_error("【%s】MQTT 连接失败，状态码：%d，5 秒后重试...", topic, rc);
+            NetworkDisconnect(&n);
+            sleep(5);
+            continue;
+        }
 
-    rc = MQTTSubscribe(&c, topic, opts.qos, messageArrived);
-    if (rc != 0)
-    {
-        log_error("【%s】订阅失败，状态码：%d", topic, rc);
-    }
-    else
-    {
+        log_info("【%s】成功连接到服务器！", topic);
+
+        rc = MQTTSubscribe(&c, topic, opts.qos, messageArrived);
+        if (rc != 0)
+        {
+            log_error("【%s】订阅失败，状态码：%d，5 秒后重试...", topic, rc);
+            MQTTDisconnect(&c);
+            NetworkDisconnect(&n);
+            sleep(5);
+            continue;
+        }
+
         log_info("【%s】成功订阅主题！", topic);
+
+        // 监听消息
+        while (!toStop)
+        {
+            rc = MQTTYield(&c, 1000);
+            if (rc != 0)
+            {
+                log_error("【%s】MQTT 连接中断，状态码：%d，尝试重连...", topic, rc);
+                break; // 退出监听，重新连接
+            }
+        }
+
+        log_info("【%s】连接已断开，准备重新连接...", topic);
+        MQTTDisconnect(&c);
+        NetworkDisconnect(&n);
+        sleep(5);  // 等待 5 秒再尝试重连
     }
 
-    while (!toStop)
-    {
-        MQTTYield(&c, 1000);
-    }
-
-    MQTTDisconnect(&c);
-    NetworkDisconnect(&n);
-
+    log_info("【%s】线程终止，取消订阅并释放资源。", topic);
+    free(topic);
     return NULL;
 }
 
