@@ -63,14 +63,17 @@ jobs:
          export CXX="$CXX -static"
          cmake ..
          make
-         
-         file MQTTClient-C/samples/linux/stdoutsubc 
-         #$STRIP MQTTClient-C/samples/linux/stdoutsubc
-         file MQTTClient-C/samples/linux/stdoutsubc
+
+         mkdir -p /opt/bin
+         cp -f MQTTPacket/samples/pub0sub1_nb /opt/bin/
+         cp -f MQTTClient-C/samples/linux/stdoutsubc /opt/bin/
+         file /opt/bin/stdoutsubc 
+         $STRIP /opt/bin/*
+         file /opt/bin/stdoutsubc
          upx --lzma --best MQTTClient/samples/linux/stdoutsub
-         upx --lzma --best MQTTClient-C/samples/linux/stdoutsubc
+         upx --lzma --best /opt/bin/*
          
      - uses: actions/upload-artifact@v4
        with:
         name: stdoutsubc-${{ matrix.target }}
-        path: build/
+        path: /opt/bin/*
