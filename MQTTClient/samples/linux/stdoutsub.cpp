@@ -295,27 +295,41 @@ void messageArrived(MQTT::MessageData& md)
 
 void myconnect(IPStack &ipstack, MQTT::Client<IPStack, Countdown, 1000> &client, MQTTPacket_connectData &data, const char *topic)
 {
-    log_info("【%s】<===正在连接到 MQTT 服务器===>【%s:%d】", topic, opts.host, opts.port);
-    int rc = ipstack.connect(opts.host, opts.port);
-    if (rc != 0)
+    int retry_count = 0;
+    const int max_retries = 3;
+
+    while (retry_count < max_retries)
     {
-        log_error("【%s】TCP 连接失败，返回码：%d", topic, rc);
+        log_info("【%s】<=== 正在连接到 MQTT 服务器（尝试 %d/%d）===>【%s:%d】", topic, retry_count + 1, max_retries, opts.host, opts.port);
+        int rc = ipstack.connect(opts.host, opts.port);
+        if (rc != 0)
+        {
+            log_error("【%s】TCP 连接失败，返回码：%d", topic, rc);
+            retry_count++;
+            sleep(5);  // 等待 5 秒再重试
+            continue;
+        }
+
+        rc = client.connect(data);
+        if (rc != 0)
+        {
+            log_error("【%s】MQTT 连接失败，返回码：%d", topic, rc);
+            retry_count++;
+            ipstack.disconnect();
+            sleep(5);
+            continue;
+        }
+
+        log_info("【%s】成功连接到 MQTT 服务器！", topic);
         return;
     }
 
-    rc = client.connect(data);
-    if (rc != 0)
-    {
-        log_error("【%s】MQTT 连接失败，返回码：%d", topic, rc);
-        return;
-    }
-
-    log_info("【%s】成功连接到 MQTT 服务器！", topic);
+    log_error("【%s】连接失败，达到最大重试次数，放弃连接。", topic);
 }
 
 void *subscribeTopic(void *topic_param)
 {
-    char *topic = (char *)topic_param;
+    char *topic = strdup((char *)topic_param);  // 复制主题，防止传递的指针失效
     IPStack ipstack;
     MQTT::Client<IPStack, Countdown, 1000> client(ipstack);
 
@@ -328,30 +342,50 @@ void *subscribeTopic(void *topic_param)
     data.keepAliveInterval = 10;
     data.cleansession = 1;
 
-    myconnect(ipstack, client, data, topic);
-
-    int rc = client.subscribe(topic, opts.qos, messageArrived);
-    if (rc != 0)
-    {
-        log_error("【%s】订阅失败，返回码：%d", topic, rc);
-    }
-    else
-    {
-        log_info("【%s】成功订阅主题！", topic);
-    }
-
     while (!toStop)
     {
-        client.yield(1000);
+        myconnect(ipstack, client, data, topic);
+
+        if (!client.isConnected())
+        {
+            log_error("【%s】无法连接到 MQTT 服务器，等待 10 秒后重试...", topic);
+            sleep(10);
+            continue;
+        }
+
+        int rc = client.subscribe(topic, opts.qos, messageArrived);
+        if (rc != 0)
+        {
+            log_error("【%s】订阅失败，返回码：%d", topic, rc);
+            client.disconnect();
+            ipstack.disconnect();
+            sleep(5);
+            continue;
+        }
+
+        log_info("【%s】成功订阅主题！", topic);
+
+        while (!toStop)
+        {
+            rc = client.yield(1000);
+            if (rc != 0 || !client.isConnected())
+            {
+                log_error("【%s】MQTT 连接中断，尝试重连...", topic);
+                break;  // 退出监听，重新连接
+            }
+        }
+
+        log_info("【%s】连接断开，准备重新连接...", topic);
+        client.disconnect();
+        ipstack.disconnect();
+        sleep(5);
     }
 
-    log_info("【%s】取消订阅并断开连接。", topic);
-    client.disconnect();
-    ipstack.disconnect();
-
-    free(topic); 
+    log_info("【%s】线程终止，释放资源。", topic);
+    free(topic);
     return NULL;
 }
+
 
 int main(int argc, char **argv)
 {
