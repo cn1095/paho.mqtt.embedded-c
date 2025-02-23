@@ -303,8 +303,6 @@ int main(int argc, char** argv)
         usage();
 
     char* topic_list = argv[1];
-    char* topics = strdup(topic_list); 
-    char* topics_for_subscribe = strdup(topic_list);  
     getopts(argc, argv);
 
     Network n;
@@ -340,8 +338,9 @@ int main(int argc, char** argv)
         }
 
         log_info("成功连接到 MQTT 服务器！");
+        int topic_count = 0;
+        char* topics = strdup(topic_list);
         char* topic = strtok(topics, ",");
-	int topic_count = 0;
     	while (topic)
     	{
         	topic_count++;
@@ -357,8 +356,10 @@ int main(int argc, char** argv)
         	opts.showtopics = 1;
 		log_info("检测到订阅多个主题，默认开启主题名显示。");
 	}
-
-	topic = strtok(topics_for_subscribe, ",");
+	free(topics);
+	    
+	char* topics_for_subscribe = strdup(topic_list);
+        topic = strtok(topics_for_subscribe, ",");
         while (topic != NULL)
         {
             if (MQTTSubscribe(&c, topic, opts.qos, messageArrived) != 0)
@@ -371,7 +372,8 @@ int main(int argc, char** argv)
             }
             topic = strtok(NULL, ",");
         }
-
+	free(topics_for_subscribe);
+	    
         while (!toStop)
         {
             if (MQTTYield(&c, 1000) != 0)
@@ -387,7 +389,5 @@ int main(int argc, char** argv)
         sleep(5);
     }
 
-    free(topics);
-    free(topics_for_subscribe);
     return 0;
 }
